@@ -1,5 +1,6 @@
 package com.du.assignment.project1;
 
+import org.jdom.Attribute;
 import org.jdom.Document;
 import org.jdom.Element;
 import org.jdom.JDOMException;
@@ -22,15 +23,12 @@ public class JDOM {
         SAXBuilder saxBuilder = new SAXBuilder();
 
         try {
-            Document docABC = new Document(new Element("purchaseOrders"));
-            Document docIBM = new Document(new Element("purchaseOrders"));
-
             Optional.ofNullable(saxBuilder.build(new File(path + "ipo.xml")))
                     .map(Document::getRootElement)
                     .map(Element::getChildren)
                     .ifPresent(list -> {
-                        Element rootABC = docABC.getRootElement();
-                        Element rootIBM = docIBM.getRootElement();
+                        ProjectJDOM projectABC = new ProjectJDOM(new Document(), "ABC_COMP");
+                        ProjectJDOM projectIBM = new ProjectJDOM(new Document(), "IBM_COMP");
 
                         list.forEach(element -> {
                             Element e = (Element) element;
@@ -38,26 +36,73 @@ public class JDOM {
                                     .ifPresent(compName -> {
                                         switch (compName) {
                                             case "ABC":
-                                                rootABC.addContent((Element) e.clone());
+                                                projectABC.append(projectABC.getCompElement(), e);
                                                 break;
                                             case "IBM":
-                                                rootIBM.addContent((Element) e.clone());
+                                                projectIBM.append(projectIBM.getCompElement(), e);
                                                 break;
                                         }
                                     });
                         });
                         try {
                             XMLOutputter out = new XMLOutputter(Format.getPrettyFormat());
-                            out.output(docABC, new FileOutputStream(new File(path + "JDOM/ABC_COMP.xml")));
-                            out.output(docIBM, new FileOutputStream(new File(path + "JDOM/IBM_COMP.xml")));
+                            out.output(projectABC.getDoc(), new FileOutputStream(new File(path + "JDOM/ABC_COMP.xml")));
+                            out.output(projectIBM.getDoc(), new FileOutputStream(new File(path + "JDOM/IBM_COMP.xml")));
                         } catch (IOException e) {
                             e.printStackTrace();
                         }
-
                     });
         } catch (JDOMException | IOException e) {
             e.printStackTrace();
         }
+    }
+}
 
+/**
+ * ProjectJDOM类是对输出xml文件的dom模型的封装
+ */
+class ProjectJDOM {
+    private Document doc;
+    private Element compElement;
+
+    ProjectJDOM(Document doc, String compName) {
+        this.doc = doc;
+        this.init(compName);
+    }
+
+    private void init(String compName) {
+        Element root = new Element("purchaseOrders");
+        this.compElement = new Element(compName);
+        root.addContent(this.compElement);
+        doc.addContent(root);
+    }
+
+    void append(Element rootElement, Element childElement) {
+        Element e = new Element(childElement.getName());
+        rootElement.addContent(e);
+
+        Optional.ofNullable(childElement.getAttributes())
+                .ifPresent(attrList -> attrList.forEach(attribute -> {
+                    Attribute attr = (Attribute) attribute;
+                    if (!attr.getName().equals("comp_name")) {
+                        Element temp = new Element(attr.getName());
+                        temp.setText(attr.getValue());
+                        e.addContent(temp);
+                    }
+                }));
+
+        if (childElement.getChildren().isEmpty()) {
+            e.setText(childElement.getText());
+        } else {
+            childElement.getChildren().forEach(element -> append(e, (Element) element));
+        }
+    }
+
+    Document getDoc() {
+        return doc;
+    }
+
+    Element getCompElement() {
+        return compElement;
     }
 }
